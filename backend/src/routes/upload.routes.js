@@ -1,5 +1,6 @@
 import express from "express";
 import multer from "multer";
+import { put } from "@vercel/blob";
 import { protect } from "../middleware/authMiddleware.js";
 import { isAdmin } from "../middleware/roleMiddleware.js";
 
@@ -12,9 +13,17 @@ router.post("/image", protect, isAdmin, upload.single("file"), async (req, res) 
       return res.status(400).json({ message: "Chưa có file ảnh" });
     }
 
-    return res.status(200).json({
-      message: "Upload local demo thành công",
-      filename: req.file.originalname,
+    const blob = await put(`products/${Date.now()}-${req.file.originalname}`, req.file.buffer, {
+      access: "public",
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+      contentType: req.file.mimetype,
+      addRandomSuffix: true,
+    });
+
+    return res.status(201).json({
+      message: "Upload ảnh thành công",
+      url: blob.url,
+      pathname: blob.pathname,
     });
   } catch (error) {
     return res.status(500).json({ message: "Lỗi server", error: error.message });
