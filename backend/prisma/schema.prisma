@@ -1,0 +1,216 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CUSTOMER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  SHIPPING
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  COD
+  BANK_TRANSFER
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id           Int            @id @default(autoincrement())
+  email        String         @unique @db.VarChar(191)
+  passwordHash String         @db.VarChar(255)
+  fullName     String         @db.VarChar(191)
+  phone        String?        @db.VarChar(50)
+  avatar       String?        @db.VarChar(500)
+  loyaltyPoint Int            @default(0)
+  role         UserRole       @default(CUSTOMER)
+  addresses    Address[]
+  orders       Order[]
+  reviews      Review[]
+  wishlist     WishlistItem[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([role])
+  @@index([createdAt])
+}
+
+model Category {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.VarChar(191)
+  slug        String    @unique @db.VarChar(191)
+  description String?   @db.Text
+  imageUrl    String?   @db.VarChar(500)
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Product {
+  id             Int             @id @default(autoincrement())
+  name           String          @db.VarChar(191)
+  slug           String          @unique @db.VarChar(191)
+  description    String?         @db.Text
+  price          Decimal         @db.Decimal(10, 2)
+  compareAtPrice Decimal?        @db.Decimal(10, 2)
+  stock          Int             @default(0)
+  imageUrl       String?         @db.VarChar(500)
+  imagePublicId  String?         @db.VarChar(255)
+  brand          String?         @db.VarChar(191)
+  tag            String?         @db.VarChar(100)
+  featured       Boolean         @default(false)
+  active         Boolean         @default(true)
+  rating         Float           @default(0)
+  ratingCount    Int             @default(0)
+  categoryId     Int
+  category       Category        @relation(fields: [categoryId], references: [id])
+  orderItems     OrderItem[]
+  reviews        Review[]
+  wishlistItems  WishlistItem[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([categoryId])
+  @@index([active])
+  @@index([featured])
+  @@index([createdAt])
+}
+
+model Address {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  label        String?  @db.VarChar(100)
+  receiverName String   @db.VarChar(191)
+  phone        String   @db.VarChar(50)
+  city         String   @db.VarChar(191)
+  district     String?  @db.VarChar(191)
+  ward         String?  @db.VarChar(191)
+  line1        String   @db.VarChar(255)
+  isDefault    Boolean  @default(false)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders       Order[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([isDefault])
+}
+
+model WishlistItem {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  productId Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@index([productId])
+}
+
+model Coupon {
+  id               Int       @id @default(autoincrement())
+  code             String    @unique @db.VarChar(80)
+  description      String?   @db.VarChar(255)
+  discountType     String    @db.VarChar(20)
+  discountValue    Decimal   @db.Decimal(10, 2)
+  minOrderValue    Decimal?  @db.Decimal(10, 2)
+  maxDiscountValue Decimal?  @db.Decimal(10, 2)
+  usageLimit       Int?
+  usedCount        Int       @default(0)
+  startsAt         DateTime?
+  endsAt           DateTime?
+  isActive         Boolean   @default(true)
+  orders           Order[]
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([isActive])
+  @@index([endsAt])
+}
+
+model Order {
+  id             Int            @id @default(autoincrement())
+  code           String         @unique @db.VarChar(30)
+  userId         Int?
+  addressId      Int?
+  couponId       Int?
+  customerName   String         @db.VarChar(191)
+  customerEmail  String         @db.VarChar(191)
+  customerPhone  String         @db.VarChar(50)
+  shippingLine1  String         @db.VarChar(255)
+  shippingWard   String         @db.VarChar(191)
+  shippingDistrict String       @db.VarChar(191)
+  shippingCity   String         @db.VarChar(191)
+  subtotal       Decimal        @db.Decimal(10, 2)
+  discountAmount Decimal        @default(0) @db.Decimal(10, 2)
+  shippingFee    Decimal        @default(0) @db.Decimal(10, 2)
+  total          Decimal        @db.Decimal(10, 2)
+  paymentMethod  PaymentMethod  @default(COD)
+  paymentStatus  PaymentStatus  @default(PENDING)
+  status         OrderStatus    @default(PENDING)
+  note           String?        @db.Text
+  user           User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  address        Address?       @relation(fields: [addressId], references: [id], onDelete: SetNull)
+  coupon         Coupon?        @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  items          OrderItem[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([userId])
+  @@index([addressId])
+  @@index([couponId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id           Int      @id @default(autoincrement())
+  orderId      Int
+  productId    Int?
+  productName  String   @db.VarChar(191)
+  productImage String?  @db.VarChar(500)
+  price        Decimal  @db.Decimal(10, 2)
+  quantity     Int
+  total        Decimal  @db.Decimal(10, 2)
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product      Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  rating    Int
+  comment   String?  @db.Text
+  userId    Int
+  productId Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, productId])
+  @@index([productId])
+  @@index([rating])
+}
